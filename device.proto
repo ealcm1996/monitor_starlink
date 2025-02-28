@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package spacex.api.device;
+
+service Device {
+  rpc Handle (Request) returns (Response) {}
+}
+
+message Request {
+  uint64 id = 1;
+  oneof request {
+    GetDeviceInfo get_device_info = 1001;
+    GetLocation get_location = 1002;
+  }
+}
+
+message Response {
+  uint64 id = 1;
+  oneof response {
+    GetDeviceInfoResponse get_device_info = 1001;
+    GetLocationResponse get_location = 1002;
+  }
+}
+
+message GetDeviceInfo {}
+
+message GetDeviceInfoResponse {
+  string id = 1;
+  string hardware_version = 2;
+  string software_version = 3;
+}
+
+message GetLocation {}
+
+message GetLocationResponse {
+  double latitude = 1;
+  double longitude = 2;
+  double altitude = 3;
+} 

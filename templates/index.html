@@ -1,0 +1,1638 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Starlink Location Monitor</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Starlink Monitor">
+    <link rel="apple-touch-icon" href="./static/icons/icon-192x192.png">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Añadir estos meta tags al principio del head -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <style>
+    /* Reset y configuración base */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+    }
+
+    :root {
+        --color-primary: #007AFF;
+        --color-success: #34c759;
+        --color-error: #ff3b30;
+        --color-background: rgba(13, 13, 13, 0.95);
+        --color-text: rgba(255, 255, 255, 0.7);
+        }
+
+        body {
+        font-family: 'Inter', sans-serif;
+        background: #000;
+        overflow: hidden;
+    }
+
+    /* Navbar principal */
+    .navbar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 60px;
+        background: var(--color-background);
+        backdrop-filter: blur(10px);
+        z-index: 1100;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        height: 100%;
+        padding: 0 20px;
+    }
+
+    .nav-logo {
+        height: 30px;
+            filter: brightness(0) invert(1);
+    }
+
+    /* Layout principal */
+    .main-content {
+        position: fixed;
+        top: 60px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        padding: 20px;
+            gap: 20px;
+        }
+
+    /* Panel de coordenadas */
+    .coordinates-container {
+        position: fixed;
+        left: 0;
+        top: 60px;
+        height: calc(100vh - 60px);
+        width: 300px;
+        background: var(--color-background);
+        backdrop-filter: blur(10px);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        transition: all 0.3s ease;
+        z-index: 1000;
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .coordinates-container.collapsed {
+        transform: translateX(0);
+        width: 100px;
+        padding: 15px 10px;
+    }
+
+    .coordinates-container.collapsed .coordinates-box {
+        text-align: center;
+        padding: 10px;
+    }
+
+    .coordinates-container.collapsed .coordinates-info {
+        display: none;
+    }
+
+    .coordinates-container.collapsed .title {
+        display: none;
+    }
+
+    .coordinates-container.collapsed .antenna-initials {
+        display: block;
+        font-size: 16px;
+        font-weight: 600;
+        color: #fff;
+    }
+
+    .antenna-initials {
+        display: none;
+    }
+
+    .coordinates-container.collapsed + #map {
+        left: 80px;
+        width: calc(100% - 80px);
+        }
+
+        .coordinates-box {
+        background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+        border-left: 4px solid #333;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .coordinates-box.active {
+        border-left: 4px solid var(--color-success);
+        }
+
+        .coordinates-box h3 {
+        color: #fff;
+        font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        margin: 0;
+    }
+
+    .coordinates-info {
+        margin-top: 12px;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.7);
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin 0.3s ease-out;
+        opacity: 0;
+    }
+
+    .coordinates-info.show {
+        max-height: 1000px;
+        opacity: 1;
+        margin-top: 15px;
+    }
+
+    .coordinates-info p {
+        display: flex;
+        justify-content: space-between;
+        margin: 8px 0;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .coordinates-info p span:last-child {
+        font-weight: 500;
+    }
+
+    .coordinates-info p:first-child span:last-child.active {
+        color: var(--color-success);
+    }
+
+    .coordinates-info p:first-child span:last-child.inactive {
+        color: var(--color-error);
+    }
+
+    /* Botón de colapsar */
+    .collapse-button {
+        position: absolute;
+        top: 50%;
+        right: -15px;
+        transform: translateY(-50%);
+        width: 30px;
+        height: 30px;
+        background: var(--color-background);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        z-index: 1001;
+    }
+
+    /* Mapa */
+        #map {
+        position: fixed;
+        top: 60px;
+        left: 100px;
+        width: calc(100% - 100px);
+        height: calc(100vh - 60px);
+        transition: all 0.3s ease;
+        z-index: 900; /* Asegura que esté detrás del panel */
+    }
+
+    /* Contenedor del mapa */
+    .map-container {
+        flex: 1;
+        height: 100%;
+        background: #1a1a1a;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        /* Personalización del mapa */
+        .leaflet-container {
+            background: #1a1a1a !important;
+        }
+
+        .leaflet-control-attribution {
+            background: rgba(0, 0, 0, 0.7) !important;
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+
+        .leaflet-control-attribution a {
+            color: rgba(255, 255, 255, 0.9) !important;
+        }
+
+        /* Animación de carga */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Responsive ajustes adicionales */
+        @media (max-width: 768px) {
+            .container {
+                margin: 20px auto 80px;
+                padding: 10px;
+            }
+
+            .header {
+                flex-direction: column;
+                text-align: center;
+                gap: 15px;
+            }
+
+            .info-panel {
+                padding: 15px;
+            }
+
+            #map {
+                height: 400px;
+            }
+        }
+
+        .custom-marker {
+            position: relative;
+        }
+
+        .marker-dot {
+        width: 32px;
+        height: 32px;
+        background: var(--color-primary);
+        border: 5px solid #FFFFFF;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        box-shadow: 0 0 0 6px rgba(0, 122, 255, 0.4),
+                    0 0 20px rgba(0, 122, 255, 0.7);
+            z-index: 2;
+        }
+
+        .marker-pulse {
+        width: 60px;
+        height: 60px;
+            background: rgba(0, 122, 255, 0.2);
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse-ring 2s ease-out infinite;
+            z-index: 1;
+        }
+
+        @keyframes pulse-ring {
+            0% {
+            transform: scale(0.3);
+                opacity: 0.8;
+            }
+            100% {
+            transform: scale(1.5);
+                opacity: 0;
+            }
+        }
+
+        /* Estilos para la navegación */
+        .navbar, .mobile-nav {
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 1000;
+            padding: 10px 20px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: 30px;
+            flex-grow: 1;
+            justify-content: center;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            margin-left: 40px;
+        }
+
+        .nav-links a, .nav-icon-link {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 10px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .nav-links a:hover, .nav-icon-link:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-links .icon, .nav-right .icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        /* Estilos específicos para el menú móvil */
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .mobile-nav .nav-links {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .mobile-nav .nav-links li {
+            flex: 1;
+            max-width: none;
+        }
+
+        .mobile-nav .nav-links a {
+            font-size: 12px;
+            padding: 8px 4px;
+        }
+
+        .mobile-nav .nav-links .icon {
+            font-size: 18px;
+        }
+
+        /* Media query para móviles */
+        @media (max-width: 768px) {
+            .navbar {
+                display: none;
+            }
+
+            .mobile-nav {
+                display: block;
+            }
+
+            .mobile-nav .nav-links {
+                gap: 5px;
+            }
+
+            .container {
+            margin: 20px auto 80px;
+            padding: 10px;
+            }
+
+            .install-button {
+                bottom: 90px;
+            }
+
+            /* Quitar el logo del header en móvil ya que ahora está en el navbar */
+            .header .logo {
+                display: none;
+            }
+        }
+
+        /* Estilos específicos para desktop */
+        @media (min-width: 769px) {
+            .nav-container {
+                max-width: 1200px;
+                padding: 5px 20px;
+            }
+
+            .nav-links a, .nav-right a {
+                flex-direction: row;
+                font-size: 15px;
+                padding: 8px 16px;
+            }
+
+            /* Ocultar iconos en desktop */
+            .nav-links .icon, .nav-right .icon {
+                display: none;
+            }
+
+            /* Ajustar espaciado */
+            .nav-links {
+                gap: 20px;
+            }
+
+            .nav-right {
+                gap: 20px;
+            }
+        }
+
+        /* Mantener iconos solo en móvil */
+        @media (max-width: 768px) {
+            .mobile-nav .nav-links a {
+                flex-direction: column;
+            }
+
+            .mobile-nav .icon {
+                display: block;
+                font-size: 20px;
+                margin-bottom: 4px;
+            }
+        }
+
+        .mobile-header {
+            display: none;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px 15px;
+        }
+
+        .mobile-header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .mobile-logo {
+            height: 35px;
+            filter: brightness(0) invert(1);
+        }
+
+        .mobile-selector {
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .antenna-select {
+            width: 100%;
+            padding: 8px 40px 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50px;
+        color: white;
+            font-size: 12px;
+            appearance: none;
+            -webkit-appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 16px;
+        background-color: transparent;
+        }
+
+        .mobile-config-btn {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 20px;
+            padding: 8px;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .mobile-config-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-header {
+                display: block;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 1000;
+            }
+
+            .container {
+                margin-top: 65px; /* Ajustar para el nuevo header más compacto */
+            }
+        }
+
+        /* Modificar los estilos para móvil */
+        @media (max-width: 768px) {
+            /* Ocultar el panel de información completo */
+            .info-panel {
+            display: none !important;
+            }
+
+            /* Ajustar el contenedor y mapa */
+        .main-content {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            #map {
+                height: calc(100vh - 130px); /* Ajustar altura considerando header y nav móvil */
+                border-radius: 0; /* Quitar bordes redondeados en móvil */
+            }
+
+            .container {
+                margin-top: 65px;
+                margin-bottom: 60px;
+                padding: 0; /* Quitar padding en móvil */
+            }
+
+            /* Ajustar el botón de instalación */
+            .install-button {
+                bottom: 70px;
+            }
+        }
+
+        /* Asegurar que el mapa ocupe todo el espacio disponible */
+        @media (max-width: 768px) {
+        .main-content {
+                height: 100%;
+            }
+
+            #map {
+                width: 100vw;
+                margin-left: -0px;
+                margin-right: -0px;
+            }
+        }
+
+        /* Ajustar los estilos para el layout móvil */
+        @media (max-width: 768px) {
+            body {
+                overflow: hidden; /* Prevenir scroll del body */
+                position: fixed;
+                width: 100%;
+                height: 100%;
+            }
+
+            .container {
+                margin: 55px 0 0 0;
+                padding: 0;
+                height: calc(100vh - 55px); /* Altura total menos el header */
+                overflow: hidden;
+            }
+
+        .main-content {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #map {
+                height: calc(100vh - 120px) !important; /* Altura total menos header y navbar */
+                margin: 0;
+                border-radius: 0;
+                border: none;
+            }
+
+            /* Ajustar posición del navbar móvil */
+            .mobile-nav {
+                position: fixed;
+            bottom: 0px;
+                left: 0;
+                right: 0;
+                background: rgba(0, 0, 0, 0.95);
+                backdrop-filter: blur(10px);
+                height: 65px;
+                z-index: 1001;
+            }
+
+            /* Ajustar controles del mapa */
+            .leaflet-control-container .leaflet-bottom {
+                bottom: 75px; /* Por encima del navbar */
+            }
+
+            /* Ajustar botón de instalación */
+            .install-button {
+                bottom: 75px;
+            }
+
+            /* Ocultar elementos innecesarios */
+            .info-panel {
+                display: none;
+            }
+        }
+
+        /* Estilos para las notificaciones */
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 20px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 1000;
+            opacity: 0;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+
+        .notification.show {
+            opacity: 1;
+        transform: translateX(-50%) translateY(0);
+        }
+
+        .notification.error {
+        border-left: 4px solid var(--color-error);
+        }
+
+        .notification.success {
+        border-left: 4px solid var(--color-success);
+        }
+
+        .notification .icon {
+            font-size: 20px;
+        }
+
+        .notification.error .icon {
+        color: var(--color-error);
+        }
+
+        .notification.success .icon {
+        color: var(--color-success);
+    }
+
+    /* Actualizar estilos del popup para hacerlo más compacto */
+    .custom-popup {
+        background: white;
+        color: #333;
+        border-radius: 12px;
+        padding: 0;
+        width: 300px !important; /* Aumentado para mejor legibilidad */
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        overflow: hidden;
+    }
+
+    .popup-header {
+        padding: 12px 15px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .popup-header h3 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        flex: 1;
+    }
+
+    .status-led {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--color-success);
+    }
+
+    .status-led.inactive {
+                background: #808080;
+    }
+
+    .popup-image {
+        width: 100%;
+        height: 120px;
+        object-fit: cover;
+        border-bottom: 1px solid #eee;
+    }
+
+    .popup-content {
+        padding: 15px;
+    }
+
+    .popup-info {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 8px 15px;
+        font-size: 12px;
+    }
+
+    .popup-info .label {
+        color: #666;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .popup-info .label i {
+        width: 16px;
+        color: var(--color-primary);
+    }
+
+    .popup-info .value {
+        color: #333;
+        font-weight: 500;
+        text-align: right;
+    }
+
+    /* Estilos para el marcador tipo barco */
+    .vessel-marker {
+        width: 80px;
+        height: 80px;
+        position: relative;
+    }
+
+    .vessel-icon {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background-image: url('./static/images/ship-icon.png'); /* Cambiar a una imagen real de barco */
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center;
+        transform-origin: center;
+    }
+
+    .signal-ring {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        background: rgba(0, 122, 255, 0.2);
+        animation: pulse-ring 2s ease-out infinite;
+        display: none;
+    }
+
+    .vessel-marker.active .signal-ring {
+        display: block;
+    }
+
+    .vessel-marker.inactive .vessel-icon {
+        filter: grayscale(100%) opacity(0.6);
+    }
+
+    /* Ajustar el contenedor del marcador */
+    .custom-marker-container {
+        margin-left: -40px;
+        margin-top: -40px;
+    }
+
+    /* Media queries para dispositivos móviles */
+    @media screen and (max-width: 768px) {
+        .coordinates-container {
+            transform: translateX(-100%); /* Ocultar por defecto en móvil */
+            width: 100%; /* Ocupar todo el ancho cuando se muestre */
+            max-width: 300px;
+        }
+
+        .coordinates-container.show-mobile {
+            transform: translateX(0);
+        }
+
+        #map {
+            left: 0 !important; /* Forzar mapa a ocupar toda la pantalla */
+            width: 100% !important;
+        }
+
+        /* Botón para mostrar/ocultar en móvil */
+        .mobile-toggle {
+            display: block;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            background: rgba(13, 13, 13, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            z-index: 1000;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Ocultar botón de colapsar original en móvil */
+        .collapse-button {
+            display: none;
+        }
+    }
+
+    /* Ocultar botón móvil en desktop */
+    .mobile-toggle {
+        display: none;
+    }
+
+    .coordinates-box:hover {
+        transform: translateX(5px);
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .coordinates-box:active {
+        transform: translateX(2px);
+    }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <img src="./static/Starlink_Logo.png" alt="Starlink Logo" class="nav-logo">
+            <ul class="nav-links">
+                <li><a href="#"><span class="icon"><i class="fas fa-map-marker-alt"></i></span>Location</a></li>
+                <li><a href="#"><span class="icon"><i class="fas fa-route"></i></span>Rutas</a></li>
+                <li><a href="#"><span class="icon"><i class="fas fa-chart-bar"></i></span>Estadísticas</a></li>
+                <li><a href="#"><span class="icon"><i class="fas fa-cog"></i></span>Configuración</a></li>
+            </ul>
+            <div class="nav-right">
+                <a href="#" class="nav-icon-link"><span class="icon"><i class="fas fa-headset"></i></span>Soporte</a>
+                <a href="#" class="nav-icon-link"><span class="icon"><i class="fas fa-user-circle"></i></span>Cuenta</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="mobile-header">
+        <div class="mobile-header-content">
+            <img src="./static/Starlink_Logo.png" alt="Starlink Logo" class="mobile-logo">
+            <div class="mobile-selector">
+                <select id="antennaSelector" class="antenna-selector">
+                    <option value="">Seleccionar antena</option>
+                    <option value="Oficina Embarcaciones">OFICINA EMBARCACIONES</option>
+                    <option value="RM MERIDA">RM MÉRIDA</option>
+                    <option value="Rio Caribe">RM RIO CARIBE</option>
+                </select>
+            </div>
+            <button class="mobile-config-btn">
+                <i class="fas fa-cog"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="main-content">
+                <div class="coordinates-container">
+            <button class="collapse-button" title="Colapsar panel">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+            
+            <div id="coordinates-oficina" class="coordinates-box">
+                <h3>
+                    <span class="status-indicator"></span>
+                    <span class="title">OFICINA EMBARCACIONES</span>
+                    <span class="antenna-initials">OE</span>
+                        </h3>
+                        <div class="coordinates-info">
+                    <!-- Contenido dinámico -->
+                        </div>
+                    </div>
+
+            <div id="coordinates-merida" class="coordinates-box">
+                        <h3>
+                            <span class="status-indicator"></span>
+                    <span class="title">RM MÉRIDA</span>
+                    <span class="antenna-initials">RM</span>
+                        </h3>
+                <div class="coordinates-info">
+                    <!-- Contenido dinámico -->
+                    </div>
+            </div>
+
+            <div id="coordinates-riocaribe" class="coordinates-box">
+                        <h3>
+                            <span class="status-indicator"></span>
+                    <span class="title">RM RIO CARIBE</span>
+                    <span class="antenna-initials">RC</span>
+                        </h3>
+                <div class="coordinates-info">
+                    <!-- Contenido dinámico -->
+                    </div>
+                </div>
+            </div>
+            
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <nav class="mobile-nav">
+        <ul class="nav-links">
+            <li><a href="#"><span class="icon"><i class="fas fa-map-marker-alt"></i></span>Locacion</a></li>
+            <li><a href="#"><span class="icon"><i class="fas fa-route"></i></span>Rutas</a></li>
+            <li><a href="#"><span class="icon"><i class="fas fa-chart-bar"></i></span>Estadísticas</a></li>
+            <li><a href="#"><span class="icon"><i class="fas fa-cog"></i></span>Configuración</a></li>
+        </ul>
+    </nav>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Actualizar los scripts de Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-analytics.js";
+
+        // Tu configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyAXbKHPpJXbuEt6Qd0I0N8PjIKH1MijCTE",
+            authDomain: "starlink-d92b1.firebaseapp.com",
+            projectId: "starlink-d92b1",
+            storageBucket: "starlink-d92b1.firebasestorage.app",
+            messagingSenderId: "826706907810",
+            appId: "1:826706907810:web:d3922d6fb580db6fb1bdfb",
+            measurementId: "G-5QJQ7DTSXS",
+            databaseURL: "https://starlink-d92b1-default-rtdb.firebaseio.com"
+        };
+
+        try {
+            // Initialize Firebase
+            const app = initializeApp(firebaseConfig);
+            const analytics = getAnalytics(app);
+            const database = getDatabase(app);
+            
+            console.log('Firebase inicializado correctamente');
+
+            // Hacer database disponible globalmente
+            window.database = database;
+            window.dbRef = ref;
+            window.dbSet = set;
+            window.dbOnValue = onValue;
+
+            // Verificar conexión a la base de datos
+            const connectedRef = ref(database, '.info/connected');
+            onValue(connectedRef, (snap) => {
+                if (snap.val() === true) {
+                    console.log('Conectado a Firebase Realtime Database');
+                } else {
+                    console.log('No conectado a Firebase Realtime Database');
+                }
+            });
+
+        } catch (error) {
+            console.error('Error al inicializar Firebase:', error);
+        }
+    </script>
+
+    <script>
+        // Inicializar el mapa con vista satelital
+        const map = L.map('map').setView([0, 0], 2);
+        
+        // Capa base de satélite de Google
+        const googleSat = L.tileLayer('http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google'
+        }).addTo(map);
+
+        // Capa de calles de OpenStreetMap como respaldo
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        });
+
+        // Control de capas
+        const baseMaps = {
+            "Satélite": googleSat,
+            "Calles": osm
+        };
+
+        L.control.layers(baseMaps).addTo(map);
+
+        let markers = {};
+
+        function updateStatus(message, isError = false) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = 'status' + (isError ? ' error' : '');
+            statusDiv.textContent = message;
+        }
+        
+        let lastConnectionState = null;
+
+        function fetchLocation() {
+            return fetch('/get_location', {
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                }
+            });
+        }
+
+        function updateLocation() {
+            fetchLocation()
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Datos recibidos del plato:', data);
+                    
+                    if (data && data.latitude && data.longitude) {
+                        // Guardar datos en Firebase
+                        const locationData = {
+                            latitude: data.latitude,
+                            longitude: data.longitude,
+                            altitude: data.altitude,
+                            timestamp: Date.now(),
+                            deviceId: 'Oficina Embarcaciones'
+                        };
+
+                        console.log('Intentando guardar en Firebase:', locationData);
+
+                        // Actualizar en Firebase
+                        const locationRef = window.dbRef(window.database, 'locations/' + locationData.deviceId);
+                        window.dbSet(locationRef, locationData)
+                            .then(() => {
+                                console.log('Datos guardados exitosamente en Firebase');
+                            })
+                            .catch((error) => {
+                                console.error('Error al guardar en Firebase:', error);
+                            });
+                        
+                        // Actualizar marcador
+                        const id = data.id;
+                        if (!markers[id]) {
+                            markers[id] = L.marker([data.latitude, data.longitude], {
+                                icon: activeIcon
+                            }).addTo(map).bindPopup(`
+                                <strong>Oficina Embarcaciones</strong><br>
+                                Lat: ${data.latitude.toFixed(7)}<br>
+                                Lng: ${data.longitude.toFixed(7)}
+                            `);
+                        } else {
+                            markers[id].setLatLng([data.latitude, data.longitude]);
+                            markers[id].getPopup().setContent(`
+                                <strong>Oficina Embarcaciones</strong><br>
+                                Lat: ${data.latitude.toFixed(7)}<br>
+                                Lng: ${data.longitude.toFixed(7)}
+                            `);
+                        }
+                        
+                        // Centrar el mapa solo en la primera carga
+                        if (firstLoad) {
+                            map.setView([data.latitude, data.longitude], 18);
+                            firstLoad = false;
+                        }
+                        
+                        // Actualizar la información en el panel con verificación
+                        const infoElement = document.querySelector('#coordinates-oficina .coordinates-info');
+                        if (infoElement) {
+                            infoElement.innerHTML = `
+                                <p>Latitud: ${data.latitude.toFixed(7)}°</p>
+                                <p>Longitud: ${data.longitude.toFixed(7)}°</p>
+                                <p>Altitud: ${data.altitude.toFixed(2)}m</p>
+                            `;
+                        }
+                    } else {
+                        console.warn('No hay datos válidos para enviar a Firebase');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error al obtener datos:', error);
+                });
+        }
+        
+        // Función para actualizar el estado visual de las antenas
+        function updateAntennaStatus(isConnected) {
+            document.querySelectorAll('.coordinates-box').forEach(box => {
+                const id = box.id.replace('coordinates-', '');
+                const isOficina = id === 'oficina';  // Cambiado de 'niolo' a 'oficina'
+                
+                // Actualizar clase active de la tarjeta
+                box.classList.toggle('active', isConnected && isOficina);
+                
+                // Actualizar indicador de estado
+                const statusIndicator = box.querySelector('.status-indicator');
+                if (statusIndicator) {
+                    statusIndicator.classList.toggle('active', isConnected && isOficina);
+                }
+                
+                // Actualizar marcador en el mapa
+                if (markers[id]) {
+                    if (!isConnected) {
+                        markers[id].setIcon(inactiveIcon);
+                    } else {
+                        markers[id].setIcon(activeIcon);
+                    }
+                }
+            });
+        }
+
+        // Mover estas funciones al inicio, después de la inicialización del mapa
+        function updateInfoPanel(deviceId, locationData, isActive) {
+            // Mapeo de IDs
+            const idMapping = {
+                'OFICINA EMBARCACIONES': 'oficina',
+                'RM MERIDA': 'merida',
+                'Rio Caribe': 'riocaribe'
+            };
+
+            const panelId = idMapping[deviceId];
+            if (!panelId) return;
+
+            const infoBox = document.querySelector(`#coordinates-${panelId}`);
+            if (infoBox) {
+                const infoElement = infoBox.querySelector('.coordinates-info');
+                if (infoElement) {
+                    infoElement.innerHTML = `
+                        <p><span>Estado:</span> <span>${isActive ? 'En línea' : 'Desconectado'}</span></p>
+                        <p><span>Latitud:</span> <span>${locationData.latitude.toFixed(6)}°</span></p>
+                        <p><span>Longitud:</span> <span>${locationData.longitude.toFixed(6)}°</span></p>
+                        <p><span>Altitud:</span> <span>${locationData.altitude?.toFixed(1) || 0}m</span></p>
+                        <p><span>Actualización:</span> <span>${new Date(locationData.timestamp).toLocaleString()}</span></p>
+                    `;
+                }
+
+                // Actualizar indicadores visuales
+                const statusIndicator = infoBox.querySelector('.status-indicator');
+                if (statusIndicator) {
+                    statusIndicator.classList.toggle('active', isActive);
+                }
+                infoBox.classList.toggle('active', isActive);
+            }
+        }
+
+        // Variable global para controlar si ya se hizo el zoom inicial
+        let initialZoomDone = false;
+
+        function updateAllLocations() {
+            fetch('/get_all_locations')
+            .then(response => response.json())
+                .then(locations => {
+                    if (!locations || locations.error) {
+                        console.error('Error en los datos:', locations?.error || 'No hay datos');
+                        return;
+                    }
+
+                    // Solo hacer zoom si no se ha hecho antes
+                    if (!initialZoomDone) {
+                        Object.entries(locations).forEach(([deviceId, locationData]) => {
+                            if (locationData && locationData.latitude && locationData.longitude) {
+                                const timestamp = Number(locationData.timestamp);
+                                const timeDiff = Date.now() - timestamp;
+                                const isActive = !isNaN(timestamp) && timeDiff < 120000;
+
+                                if (isActive) {
+                                    map.setView([locationData.latitude, locationData.longitude], 15);
+                                    initialZoomDone = true; // Marcar que ya se hizo el zoom inicial
+                                    return; // Salir del loop una vez que se hizo el zoom
+                                }
+                            }
+                        });
+                    }
+
+                    // Actualizar marcadores y estado
+                    Object.entries(locations).forEach(([deviceId, locationData]) => {
+                        if (locationData && locationData.latitude && locationData.longitude) {
+                            const timestamp = Number(locationData.timestamp);
+                            const timeDiff = Date.now() - timestamp;
+                            const isActive = !isNaN(timestamp) && timeDiff < 120000;
+
+                            // Actualizar marcadores...
+                            if (!markers[deviceId]) {
+                                markers[deviceId] = L.marker([locationData.latitude, locationData.longitude], {
+                                    icon: createCustomMarker(isActive)
+                                }).addTo(map);
+                        } else {
+                                markers[deviceId].setLatLng([locationData.latitude, locationData.longitude]);
+                                markers[deviceId].setIcon(createCustomMarker(isActive));
+                            }
+
+                            const popupContent = createPopupContent(deviceId, locationData, isActive);
+                            markers[deviceId].bindPopup(popupContent);
+                            
+                            if (markers[deviceId].isPopupOpen()) {
+                                markers[deviceId].getPopup().setContent(popupContent);
+                            }
+
+                            updateInfoPanel(deviceId, locationData, isActive);
+                        }
+                    });
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        // Iniciar actualizaciones
+        updateAllLocations();
+        setInterval(updateAllLocations, 1000);
+
+        // Registrar Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registrado:', registration);
+                    })
+                    .catch(error => {
+                        console.log('Error al registrar Service Worker:', error);
+                    });
+            });
+        }
+
+        let deferredPrompt;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevenir que Chrome muestre la instalación automática
+            e.preventDefault();
+            // Guardar el evento para usarlo después
+            deferredPrompt = e;
+            // Mostrar el botón de instalación
+            document.getElementById('installButton').style.display = 'block';
+        });
+
+        function installPWA() {
+            // Ocultar el botón de instalación
+            document.getElementById('installButton').style.display = 'none';
+            // Mostrar el prompt de instalación
+            deferredPrompt.prompt();
+            // Esperar la respuesta del usuario
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('Usuario aceptó la instalación');
+                }
+                deferredPrompt = null;
+            });
+        }
+
+        // Modificar el event listener del selector de antenas
+        document.getElementById('antennaSelector').addEventListener('change', function(e) {
+            const selectedId = e.target.value;
+            if (!selectedId) return;
+
+            // Obtener la ubicación actual del plato
+            fetch('/get_all_locations')
+                .then(response => response.json())
+                .then(locations => {
+                    if (selectedId === 'Oficina Embarcaciones') {
+                        const data = locations['OFICINA EMBARCACIONES'];
+                        map.setView([data.latitude, data.longitude], 18);
+                    } 
+                    else if (selectedId === 'RM MERIDA') {
+                        const data = locations['RM MERIDA'];
+                        map.setView([data.latitude, data.longitude], 18);
+                    }
+                        
+                        // Mostrar el marcador correspondiente
+                        Object.keys(markers).forEach(key => {
+                            map.removeLayer(markers[key]);
+                            delete markers[key];
+                        });
+
+                    const locationData = locations[selectedId];
+                    const isActive = (Date.now() - locationData.timestamp) < 60000;
+                    
+                    markers[selectedId] = L.marker([locationData.latitude, locationData.longitude], {
+                        icon: createCustomMarker(isActive)
+                    }).addTo(map).bindPopup(createPopupContent(selectedId, locationData, isActive));
+                });
+        });
+
+        // Estilos unificados para popups y marcadores
+        const customStyles = `
+            .vessel-marker {
+                width: 80px;
+                height: 80px;
+                position: relative;
+            }
+
+            .vessel-icon {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                background-size: contain;
+                background-repeat: no-repeat;
+                background-position: center;
+                transform-origin: center;
+            }
+
+            .signal-ring {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                border-radius: 50%;
+                animation: pulse-ring 2s ease-out infinite;
+            }
+
+            .vessel-marker.active .signal-ring {
+                background: rgba(0, 122, 255, 0.2);
+            }
+
+            .vessel-marker.inactive .signal-ring {
+                background: rgba(128, 128, 128, 0.2);
+            }
+
+            .vessel-marker.active .vessel-icon {
+                filter: brightness(1);
+            }
+
+            .vessel-marker.inactive .vessel-icon {
+                filter: grayscale(100%) opacity(0.6);
+            }
+
+            /* Estilos mejorados para el popup */
+            .custom-popup {
+                background: white;
+                border-radius: 12px;
+                overflow: hidden;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                min-width: 250px;
+            }
+
+            .popup-header {
+                background: #f8f9fa;
+                padding: 12px 15px;
+                border-bottom: 1px solid #eee;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .popup-header h3 {
+                margin: 0;
+                font-size: 14px;
+                font-weight: 600;
+                color: #333;
+            }
+
+            .status-led {
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+            }
+
+            .status-led.active {
+                background: #34c759;
+                box-shadow: 0 0 0 2px rgba(52, 199, 89, 0.2);
+            }
+
+            .status-led.inactive {
+                background: #808080;
+                box-shadow: 0 0 0 2px rgba(128, 128, 128, 0.2);
+            }
+
+            .popup-content {
+                padding: 15px;
+            }
+
+            .popup-info {
+                display: grid;
+                grid-template-columns: auto 1fr;
+                gap: 8px 15px;
+                font-size: 13px;
+            }
+
+            .popup-info .label {
+                color: #666;
+                font-weight: 500;
+            }
+
+            .popup-info .value {
+                color: #333;
+                text-align: right;
+            }
+
+            @keyframes pulse-ring {
+                0% {
+                    transform: scale(0.5);
+                    opacity: 1;
+                }
+                100% {
+                    transform: scale(1.5);
+                    opacity: 0;
+                }
+            }
+
+            /* Ocultar el contenedor por defecto de Leaflet */
+            .leaflet-popup-content-wrapper {
+                padding: 0;
+                background: none;
+                box-shadow: none;
+            }
+
+            .leaflet-popup-content {
+                margin: 0;
+            }
+
+            .leaflet-popup-tip-container {
+                display: none;
+            }
+        `;
+
+        // Agregar estilos al documento
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = customStyles;
+        document.head.appendChild(styleSheet);
+
+        function createCustomMarker(isActive) {
+            return L.divIcon({
+                className: 'custom-marker-container',
+                html: `
+                    <div class="vessel-marker ${isActive ? 'active' : 'inactive'}">
+                        <div class="signal-ring"></div>
+                        <div class="vessel-icon"></div>
+                    </div>
+                `,
+                iconSize: [80, 80],
+                iconAnchor: [40, 40]
+            });
+        }
+
+        function createPopupContent(deviceId, locationData, isActive) {
+            const antennaNames = {
+                'OFICINA EMBARCACIONES': 'OFICINA EMBARCACIONES',
+                'Rio Caribe': 'RM RIO CARIBE',
+                'RM MERIDA': 'RM MÉRIDA'
+            };
+
+            const antennaName = antennaNames[deviceId] || deviceId;
+            const timeDiff = Math.floor((Date.now() - locationData.timestamp) / 1000);
+            const lastUpdate = `Hace ${timeDiff} segundos`;
+
+            return `
+                <div class="custom-popup">
+                    <div class="popup-header">
+                        <div class="status-led ${isActive ? 'active' : 'inactive'}"></div>
+                        <h3>${antennaName}</h3>
+                    </div>
+                    <div class="popup-content">
+                        <div class="popup-info">
+                            <span class="label">Estado</span>
+                            <span class="value">${isActive ? 'En línea' : 'Desconectado'}</span>
+                            <span class="label">Latitud</span>
+                            <span class="value">${locationData.latitude.toFixed(6)}°</span>
+                            <span class="label">Longitud</span>
+                            <span class="value">${locationData.longitude.toFixed(6)}°</span>
+                            <span class="label">Altitud</span>
+                            <span class="value">${locationData.altitude?.toFixed(1) || 0}m</span>
+                            <span class="label">Actualización</span>
+                            <span class="value">${lastUpdate}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Funcionalidad de colapsar
+        const collapseButton = document.querySelector('.collapse-button');
+        const coordContainer = document.querySelector('.coordinates-container');
+        const mapElement = document.getElementById('map');
+
+        collapseButton.addEventListener('click', () => {
+            coordContainer.classList.toggle('collapsed');
+            collapseButton.querySelector('i').classList.toggle('fa-chevron-right');
+            collapseButton.querySelector('i').classList.toggle('fa-chevron-left');
+            setTimeout(() => {
+                mapElement.invalidateSize();
+            }, 300);
+        });
+
+        // Funcionalidad para móvil
+        const mobileToggle = document.querySelector('.mobile-toggle');
+        
+        mobileToggle.addEventListener('click', () => {
+            coordContainer.classList.toggle('show-mobile');
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 300);
+        });
+
+        // Cerrar panel al hacer click en el mapa en móvil
+        if (window.innerWidth <= 768) {
+            map.on('click', () => {
+                coordContainer.classList.remove('show-mobile');
+                setTimeout(() => {
+                    map.invalidateSize();
+                }, 300);
+            });
+        }
+
+        // Ajustar mapa al cambiar tamaño de ventana
+        window.addEventListener('resize', () => {
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 300);
+        });
+
+        // Función para centrar el mapa en un marcador
+        function focusMarker(deviceId) {
+            if (markers[deviceId]) {
+                const latLng = markers[deviceId].getLatLng();
+                map.setView(latLng, 16, {
+                    animate: true,
+                    duration: 1
+                });
+                markers[deviceId].openPopup();
+
+                // En móvil, cerrar el panel después de hacer click
+                if (window.innerWidth <= 768) {
+                    coordContainer.classList.remove('show-mobile');
+                    setTimeout(() => {
+                        map.invalidateSize();
+                    }, 300);
+                }
+            }
+        }
+
+        // Mapeo de IDs de coordinates-box a IDs de dispositivos
+        const deviceMapping = {
+            'coordinates-oficina': 'OFICINA EMBARCACIONES',
+            'coordinates-merida': 'RM MERIDA',
+            'coordinates-riocaribe': 'Rio Caribe'
+        };
+
+        // Añadir eventos a cada coordinates-box
+        document.querySelectorAll('.coordinates-box, .mobile-selector').forEach(element => {
+            const deviceId = element.classList.contains('mobile-selector') 
+                ? element.dataset.deviceId 
+                : deviceMapping[element.id];
+
+            // Añadir hover effect
+            element.addEventListener('mouseenter', () => {
+                if (markers[deviceId]) {
+                    const markerElement = markers[deviceId].getElement();
+                    if (markerElement) {
+                        markerElement.style.zIndex = 1000;
+                        markerElement.style.transform += ' scale(1.1)';
+                    }
+                }
+            });
+
+            element.addEventListener('mouseleave', () => {
+                if (markers[deviceId]) {
+                    const markerElement = markers[deviceId].getElement();
+                    if (markerElement) {
+                        markerElement.style.zIndex = '';
+                        markerElement.style.transform = markerElement.style.transform.replace(' scale(1.1)', '');
+                    }
+                }
+            });
+
+            // Añadir click event
+            element.addEventListener('click', () => {
+                focusMarker(deviceId);
+            });
+
+            // Añadir estilo de cursor pointer
+            element.style.cursor = 'pointer';
+        });
+    </script>
+
+    <!-- Agregar antes del cierre del body -->
+    <div id="errorNotification" class="notification error">
+        <div class="icon">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="notification-content">
+            <div class="notification-title">Error al conectar</div>
+            <div class="notification-message">No se detecta el plato Starlink</div>
+        </div>
+    </div>
+
+    <div id="successNotification" class="notification success">
+        <div class="icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="notification-content">
+            <div class="notification-title">Conectado</div>
+            <div class="notification-message">Plato Starlink detectado</div>
+        </div>
+    </div>
+
+    <!-- Añadir antes del cierre del body -->
+    <button class="mobile-toggle">
+        <i class="fas fa-bars"></i>
+    </button>
+</body>
+</html> 

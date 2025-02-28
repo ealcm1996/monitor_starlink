@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: starlink-monitor
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT starlink_map:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.9.0
+      - key: FLASK_ENV
+        value: "production"
+      - key: NGROK_TOKEN
+        sync: false  # Esto indica que el valor se configurará manualmente
+    buildFilter:
+      paths:
+        - templates/**
+        - static/**
+        - "*.py"
+        - requirements.txt 

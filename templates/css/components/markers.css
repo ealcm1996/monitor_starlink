@@ -1,0 +1,33 @@
+.custom-marker-container {
+    position: relative;
+}
+
+.vessel-marker {
+    width: 40px;
+    height: 40px;
+    position: relative;
+}
+
+.vessel-marker.active .signal-ring {
+    animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+.signal-ring {
+    border: 3px solid var(--color-success);
+    border-radius: 50%;
+    height: 40px;
+    width: 40px;
+    position: absolute;
+    opacity: 0;
+}
+
+@keyframes pulse-ring {
+    0% {
+        transform: scale(0.3);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(1.5);
+        opacity: 0;
+    }
+} 

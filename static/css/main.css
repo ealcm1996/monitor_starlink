@@ -1,0 +1,37 @@
+/* Importar variables globales */
+@import 'variables.css';
+
+/* Importar componentes */
+@import 'components/navbar.css';
+@import 'components/sidebar.css';
+@import 'components/map.css';
+@import 'components/markers.css';
+@import 'components/popup.css';
+@import 'components/mobile.css';
+@import 'components/notifications.css';
+@import 'components/status-indicators.css';
+
+/* Reset y estilos base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background: #000;
+    overflow: hidden;
+}
+
+/* Layout principal */
+.main-content {
+    position: fixed;
+    top: var(--navbar-height);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    padding: var(--spacing-lg);
+    gap: var(--spacing-lg);
+} 

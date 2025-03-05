@@ -9,6 +9,15 @@ import json
 # Cargar variables de entorno
 load_dotenv()
 
+# Obtener credenciales
+try:
+    cred_dict = json.loads(os.getenv('FIREBASE_CREDENTIALS'))
+    if not cred_dict:
+        raise ValueError("No se encontraron las credenciales de Firebase")
+except Exception as e:
+    print(f"Error al cargar las credenciales: {e}")
+    exit(1)
+
 # Configurar logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -18,7 +27,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Inicializar Firebase Admin
 try:
-    cred_dict = json.loads(os.getenv('FIREBASE_CREDENTIALS'))
     cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred, {
         'databaseURL': os.getenv('FIREBASE_DATABASE_URL')
@@ -60,7 +68,34 @@ def manifest():
 
 @app.route('/static/<path:filename>')
 def static_files(filename):
-    return send_from_directory(app.static_folder, filename)
+    return send_from_directory('static', filename)
+
+def fetchLocation():
+    locations = {}
+    antenas = ['OFICINA EMBARCACIONES', 'RM MERIDA', 'RM RIO CARIBE']
+    
+    for antena in antenas:
+        try:
+            # Obtener datos de cada antena
+            locationData = {
+                'latitude': data.latitude,
+                'longitude': data.longitude,
+                'altitude': data.altitude,
+                'timestamp': Date.now(),
+                'deviceId': antena
+            }
+            
+            # Guardar en Firebase
+            locationRef = window.dbRef(window.database, 'locations/' + antena)
+            window.dbSet(locationRef, locationData)
+            
+            locations[antena] = locationData
+            
+        except Exception as e:
+            print(f'Error al obtener datos de {antena}: {e}')
+            continue
+    
+    return locations
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 

@@ -1,0 +1,49 @@
+/* Estilos para los popups del mapa */
+.custom-popup {
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+    background: var(--color-background);
+    color: var(--color-text);
+    min-width: 200px;
+}
+
+.popup-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.popup-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: white;
+}
+
+.popup-content {
+    font-size: 13px;
+}
+
+.popup-info {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 5px var(--spacing-md);
+}
+
+.popup-info span:first-child {
+    color: var(--color-text);
+}
+
+.popup-info span:last-child {
+    color: white;
+}
+
+.popup-info .active {
+    color: var(--color-success);
+}
+
+.popup-info .inactive {
+    color: var(--color-error);
+} 

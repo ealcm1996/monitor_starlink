@@ -1,0 +1,23 @@
+.custom-popup {
+    padding: 10px;
+    border-radius: 8px;
+    background: var(--color-background);
+    color: var(--color-text);
+}
+
+.popup-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.popup-content {
+    font-size: 13px;
+}
+
+.popup-info {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 5px 10px;
+} 

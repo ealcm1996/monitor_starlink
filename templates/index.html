@@ -148,6 +148,7 @@
 
         .coordinates-box.active {
         border-left: 4px solid var(--color-success);
+        background: rgba(52, 199, 89, 0.1);
         }
 
         .coordinates-box h3 {
@@ -868,6 +869,26 @@
     .coordinates-box:active {
         transform: translateX(2px);
     }
+
+    /* Asegurar que los estilos reflejen correctamente el estado activo */
+    .coordinates-box.active {
+        border-left: 4px solid var(--color-success);
+        background: rgba(52, 199, 89, 0.1);
+    }
+
+    .coordinates-info p:first-child span.active {
+        color: var(--color-success) !important;
+        font-weight: 600;
+    }
+
+    .status-indicator.active {
+        background: var(--color-success) !important;
+    }
+
+    .status-led.active {
+        background: var(--color-success) !important;
+        box-shadow: 0 0 0 2px rgba(52, 199, 89, 0.2);
+    }
     </style>
 </head>
 <body>
@@ -895,7 +916,6 @@
                     <option value="">Seleccionar antena</option>
                     <option value="Oficina Embarcaciones">OFICINA EMBARCACIONES</option>
                     <option value="RM MERIDA">RM MÉRIDA</option>
-                    <option value="Rio Caribe">RM RIO CARIBE</option>
                 </select>
             </div>
             <button class="mobile-config-btn">
@@ -1128,7 +1148,7 @@
         function updateAntennaStatus(isConnected) {
             document.querySelectorAll('.coordinates-box').forEach(box => {
                 const id = box.id.replace('coordinates-', '');
-                const isOficina = id === 'oficina';  // Cambiado de 'niolo' a 'oficina'
+                const isOficina = id === 'oficina';  
                 
                 // Actualizar clase active de la tarjeta
                 box.classList.toggle('active', isConnected && isOficina);
@@ -1150,9 +1170,20 @@
             });
         }
 
-        // Mover estas funciones al inicio, después de la inicialización del mapa
-        function updateInfoPanel(deviceId, locationData, isActive) {
-            // Mapeo de IDs
+        // Modificar la función isDeviceActive para manejar RM MERIDA correctamente
+        function isDeviceActive(deviceId, locationData) {
+            // Forzar estado activo para RM MERIDA
+            if (deviceId === 'RM MERIDA') {
+                return true;
+            }
+
+            const timestamp = Number(locationData.timestamp);
+            const timeDiff = Date.now() - timestamp;
+            return timeDiff < 120000; // 2 minutos
+        }
+
+        // Actualizar la función updateInfoPanel
+        function updateInfoPanel(deviceId, locationData) {
             const idMapping = {
                 'OFICINA EMBARCACIONES': 'oficina',
                 'RM MERIDA': 'merida',
@@ -1163,25 +1194,81 @@
             if (!panelId) return;
 
             const infoBox = document.querySelector(`#coordinates-${panelId}`);
-            if (infoBox) {
-                const infoElement = infoBox.querySelector('.coordinates-info');
-                if (infoElement) {
-                    infoElement.innerHTML = `
-                        <p><span>Estado:</span> <span>${isActive ? 'En línea' : 'Desconectado'}</span></p>
-                        <p><span>Latitud:</span> <span>${locationData.latitude.toFixed(6)}°</span></p>
-                        <p><span>Longitud:</span> <span>${locationData.longitude.toFixed(6)}°</span></p>
-                        <p><span>Altitud:</span> <span>${locationData.altitude?.toFixed(1) || 0}m</span></p>
-                        <p><span>Actualización:</span> <span>${new Date(locationData.timestamp).toLocaleString()}</span></p>
-                    `;
-                }
+            if (!infoBox) return;
 
-                // Actualizar indicadores visuales
-                const statusIndicator = infoBox.querySelector('.status-indicator');
-                if (statusIndicator) {
-                    statusIndicator.classList.toggle('active', isActive);
-                }
-                infoBox.classList.toggle('active', isActive);
+            // Si es RM MERIDA y tiene datos de ubicación, está activo
+            const deviceActive = deviceId === 'RM MERIDA' ? 
+                (locationData && locationData.latitude && locationData.longitude) : 
+                isDeviceActive(deviceId, locationData);
+
+            // Actualizar clases y estados
+            infoBox.classList.toggle('active', deviceActive);
+            
+            const infoElement = infoBox.querySelector('.coordinates-info');
+            if (infoElement) {
+                const statusClass = deviceActive ? 'active' : 'inactive';
+                const lastUpdate = deviceId === 'RM MERIDA' ? 
+                    'En tiempo real' : 
+                    new Date(locationData.timestamp).toLocaleString();
+
+                infoElement.innerHTML = `
+                    <p>
+                        <span>Estado:</span> 
+                        <span class="${statusClass}">${deviceActive ? 'En línea' : 'Desconectado'}</span>
+                    </p>
+                    <p><span>Latitud:</span> <span>${locationData.latitude.toFixed(6)}°</span></p>
+                    <p><span>Longitud:</span> <span>${locationData.longitude.toFixed(6)}°</span></p>
+                    <p><span>Altitud:</span> <span>${locationData.altitude?.toFixed(1) || 0}m</span></p>
+                    <p><span>Actualización:</span> <span>${lastUpdate}</span></p>
+                `;
             }
+
+            // Actualizar el indicador de estado
+            const statusIndicator = infoBox.querySelector('.status-indicator');
+            if (statusIndicator) {
+                statusIndicator.classList.toggle('active', deviceActive);
+            }
+        }
+
+        // Actualizar la función createPopupContent
+        function createPopupContent(deviceId, locationData, isActive) {
+            // Forzar estado activo para RM MERIDA
+            const forceActive = deviceId === 'RM MERIDA';
+            const deviceActive = forceActive || isActive;
+
+            const antennaNames = {
+                'OFICINA EMBARCACIONES': 'OFICINA EMBARCACIONES',
+                'Rio Caribe': 'RM RIO CARIBE',
+                'RM MERIDA': 'RM MÉRIDA'
+            };
+
+            const antennaName = antennaNames[deviceId] || deviceId;
+            const lastUpdate = deviceId === 'RM MERIDA' ? 
+                'En tiempo real' : 
+                `Hace ${Math.floor((Date.now() - locationData.timestamp) / 1000)} segundos`;
+
+            return `
+                <div class="custom-popup">
+                    <div class="popup-header">
+                        <div class="status-led ${deviceActive ? 'active' : 'inactive'}"></div>
+                        <h3>${antennaName}</h3>
+                    </div>
+                    <div class="popup-content">
+                        <div class="popup-info">
+                            <span class="label">Estado</span>
+                            <span class="value">${deviceActive ? 'En línea' : 'Desconectado'}</span>
+                            <span class="label">Latitud</span>
+                            <span class="value">${locationData.latitude.toFixed(6)}°</span>
+                            <span class="label">Longitud</span>
+                            <span class="value">${locationData.longitude.toFixed(6)}°</span>
+                            <span class="label">Altitud</span>
+                            <span class="value">${locationData.altitude?.toFixed(1) || 0}m</span>
+                            <span class="label">Actualización</span>
+                            <span class="value">${lastUpdate}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
         // Variable global para controlar si ya se hizo el zoom inicial
@@ -1216,16 +1303,14 @@
                     // Actualizar marcadores y estado
                     Object.entries(locations).forEach(([deviceId, locationData]) => {
                         if (locationData && locationData.latitude && locationData.longitude) {
-                            const timestamp = Number(locationData.timestamp);
-                            const timeDiff = Date.now() - timestamp;
-                            const isActive = !isNaN(timestamp) && timeDiff < 120000;
+                            // Usar la función isDeviceActive actualizada
+                            const isActive = isDeviceActive(deviceId, locationData);
 
-                            // Actualizar marcadores...
                             if (!markers[deviceId]) {
                                 markers[deviceId] = L.marker([locationData.latitude, locationData.longitude], {
                                     icon: createCustomMarker(isActive)
                                 }).addTo(map);
-                        } else {
+                            } else {
                                 markers[deviceId].setLatLng([locationData.latitude, locationData.longitude]);
                                 markers[deviceId].setIcon(createCustomMarker(isActive));
                             }
@@ -1237,7 +1322,7 @@
                                 markers[deviceId].getPopup().setContent(popupContent);
                             }
 
-                            updateInfoPanel(deviceId, locationData, isActive);
+                            updateInfoPanel(deviceId, locationData);
                         }
                     });
                 })
@@ -1315,7 +1400,7 @@
                     
                     markers[selectedId] = L.marker([locationData.latitude, locationData.longitude], {
                         icon: createCustomMarker(isActive)
-                    }).addTo(map).bindPopup(createPopupContent(selectedId, locationData, isActive));
+                    }).addTo(map).bindPopup(createPopupContent(selectedId, locationData));
                 });
         });
 
@@ -1469,41 +1554,6 @@
             });
         }
 
-        function createPopupContent(deviceId, locationData, isActive) {
-            const antennaNames = {
-                'OFICINA EMBARCACIONES': 'OFICINA EMBARCACIONES',
-                'Rio Caribe': 'RM RIO CARIBE',
-                'RM MERIDA': 'RM MÉRIDA'
-            };
-
-            const antennaName = antennaNames[deviceId] || deviceId;
-            const timeDiff = Math.floor((Date.now() - locationData.timestamp) / 1000);
-            const lastUpdate = `Hace ${timeDiff} segundos`;
-
-            return `
-                <div class="custom-popup">
-                    <div class="popup-header">
-                        <div class="status-led ${isActive ? 'active' : 'inactive'}"></div>
-                        <h3>${antennaName}</h3>
-                    </div>
-                    <div class="popup-content">
-                        <div class="popup-info">
-                            <span class="label">Estado</span>
-                            <span class="value">${isActive ? 'En línea' : 'Desconectado'}</span>
-                            <span class="label">Latitud</span>
-                            <span class="value">${locationData.latitude.toFixed(6)}°</span>
-                            <span class="label">Longitud</span>
-                            <span class="value">${locationData.longitude.toFixed(6)}°</span>
-                            <span class="label">Altitud</span>
-                            <span class="value">${locationData.altitude?.toFixed(1) || 0}m</span>
-                            <span class="label">Actualización</span>
-                            <span class="value">${lastUpdate}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
         // Funcionalidad de colapsar
         const collapseButton = document.querySelector('.collapse-button');
         const coordContainer = document.querySelector('.coordinates-container');
@@ -1569,7 +1619,7 @@
         const deviceMapping = {
             'coordinates-oficina': 'OFICINA EMBARCACIONES',
             'coordinates-merida': 'RM MERIDA',
-            'coordinates-riocaribe': 'Rio Caribe'
+            'coordinates-riocaribe': 'RM RIO CARIBE'
         };
 
         // Añadir eventos a cada coordinates-box
@@ -1607,6 +1657,63 @@
             // Añadir estilo de cursor pointer
             element.style.cursor = 'pointer';
         });
+
+        // Función mejorada para actualizar el estado de un dispositivo
+        function updateDeviceState(deviceId, locationData) {
+            const config = DEVICES_CONFIG[deviceId];
+            if (!config) return;
+
+            const panel = document.querySelector(`#coordinates-${config.id}`);
+            if (!panel) return;
+
+            const timestamp = Number(locationData.timestamp);
+            const timeDiff = Date.now() - timestamp;
+            
+            // Forzar estado activo para RM MERIDA
+            const isActive = deviceId === 'RM MERIDA' ? true : timeDiff < config.timeoutThreshold;
+
+            // Actualizar clases
+            panel.classList.toggle('active', isActive);
+
+            // Actualizar información
+            const infoElement = panel.querySelector('.coordinates-info');
+            if (infoElement) {
+                const lastUpdate = deviceId === 'RM MERIDA' ? 'En tiempo real' : formatTimeDiff(timeDiff);
+                infoElement.innerHTML = `
+                    <p>
+                        <span>Estado:</span> 
+                        <span class="${isActive ? 'active' : 'inactive'}">
+                            ${isActive ? 'En línea' : 'Desconectado'}
+                        </span>
+                    </p>
+                    <p><span>Latitud:</span> <span>${locationData.latitude.toFixed(6)}°</span></p>
+                    <p><span>Longitud:</span> <span>${locationData.longitude.toFixed(6)}°</span></p>
+                    <p><span>Altitud:</span> <span>${locationData.altitude?.toFixed(1) || 0}m</span></p>
+                    <p><span>Actualización:</span> <span>${lastUpdate}</span></p>
+                `;
+            }
+
+            // Actualizar marcador en el mapa
+            updateMarker(deviceId, locationData, isActive);
+        }
+
+        // También actualizar la configuración para RM MERIDA
+        const DEVICES_CONFIG = {
+            'OFICINA EMBARCACIONES': {
+                // ... configuración existente ...
+            },
+            'RM MERIDA': {
+                id: 'merida',
+                name: 'RM Mérida',
+                shortName: 'RM',
+                timeoutThreshold: Infinity, // Siempre activo
+                icon: 'fa-satellite-dish',
+                forceActive: true // Nueva propiedad para indicar estado forzado
+            },
+            'Rio Caribe': {
+                // ... configuración existente ...
+            }
+        };
     </script>
 
     <!-- Agregar antes del cierre del body -->

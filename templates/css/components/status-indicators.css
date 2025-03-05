@@ -1,0 +1,30 @@
+/* Indicadores de estado */
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #333;
+    transition: var(--transition-default);
+}
+
+.status-indicator.active {
+    background: var(--color-success);
+    box-shadow: 0 0 10px rgba(52, 199, 89, 0.5);
+}
+
+/* Animación de pulso para estado activo */
+@keyframes status-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(52, 199, 89, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(52, 199, 89, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(52, 199, 89, 0);
+    }
+}
+
+.status-indicator.active {
+    animation: status-pulse 2s infinite;
+} 

@@ -1,0 +1,59 @@
+/* Estilos para las notificaciones */
+.notification {
+    position: fixed;
+    top: calc(var(--navbar-height) + var(--spacing-md));
+    right: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    border-radius: var(--border-radius);
+    background: var(--color-background);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--color-border);
+    opacity: 0;
+    transform: translateY(-20px);
+    transition: var(--transition-default);
+    z-index: 2000;
+}
+
+.notification.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.notification.error {
+    border-left: 4px solid var(--color-error);
+}
+
+.notification.success {
+    border-left: 4px solid var(--color-success);
+}
+
+.notification .icon {
+    font-size: 20px;
+}
+
+.notification.error .icon {
+    color: var(--color-error);
+}
+
+.notification.success .icon {
+    color: var(--color-success);
+}
+
+.notification-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.notification-title {
+    font-weight: 600;
+    color: white;
+}
+
+.notification-message {
+    font-size: 13px;
+    color: var(--color-text);
+} 

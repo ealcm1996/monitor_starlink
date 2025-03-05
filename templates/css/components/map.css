@@ -1,0 +1,30 @@
+/* Contenedor del mapa */
+#map {
+    position: fixed;
+    top: var(--navbar-height);
+    left: var(--panel-width);
+    width: calc(100% - var(--panel-width));
+    height: calc(100vh - var(--navbar-height));
+    transition: var(--transition-default);
+    z-index: 900;
+}
+
+/* Ajustes cuando el panel está colapsado */
+.coordinates-container.collapsed + #map {
+    left: var(--panel-width-collapsed);
+    width: calc(100% - var(--panel-width-collapsed));
+}
+
+/* Personalización del mapa */
+.leaflet-container {
+    background: #1a1a1a !important;
+}
+
+.leaflet-control-attribution {
+    background: rgba(0, 0, 0, 0.7) !important;
+    color: var(--color-text) !important;
+}
+
+.leaflet-control-attribution a {
+    color: rgba(255, 255, 255, 0.9) !important;
+} 
